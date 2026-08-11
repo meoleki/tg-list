@@ -41,6 +41,41 @@
 
   .monthrow{display:flex;align-items:center;gap:14px}
   .monthrow input[type=range]{flex:1;accent-color:var(--grace)}
+
+  /* Досрочные погашения */
+  #lumpList{display:flex;flex-direction:column;gap:8px}
+  .nolump{font-size:12.5px;color:var(--ink-soft);padding:6px 2px}
+  .lumprow{display:flex;gap:8px;align-items:flex-end}
+  .lumprow .lf{flex:1}
+  .lumprow .lf span{display:block;font-size:11px;color:var(--ink-soft);font-weight:600;margin-bottom:4px}
+  .lumprow .lf.mo{flex:0 0 96px}
+  .lumprow input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink);background:var(--input-bg)}
+  .lumprow input:focus{outline:none;border-color:var(--accent)}
+  .lumpdel{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:9px;height:40px;width:40px;font-size:15px;cursor:pointer}
+  .lumpdel:hover{border-color:var(--post);color:var(--post);background:var(--post-bg)}
+
+  /* Карточки сохранённых расчётов (вертикальная раскладка) */
+  .cards{display:grid;grid-template-columns:1fr;gap:12px}
+  @media (min-width:660px){ .cards{grid-template-columns:1fr 1fr} }
+  .rcard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px 15px;position:relative}
+  .rc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .rc-sum{font-family:var(--mono);font-size:18px;font-weight:700}
+  .rc-sum small{display:block;font-family:var(--sans);font-weight:400;color:var(--ink-soft);font-size:11px;margin-top:2px}
+  .rc-del{flex:0 0 auto;border:none;background:transparent;color:var(--ink-soft);font-size:17px;line-height:1;cursor:pointer;padding:2px 4px;border-radius:6px}
+  .rc-del:hover{background:var(--post-bg);color:var(--post)}
+  .rc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 2px}
+  .rc-chip{font-size:11px;color:var(--ink-soft);background:var(--paper);border-radius:999px;padding:3px 9px;font-family:var(--mono)}
+  .rc-pays{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px dashed var(--line);margin-top:11px;padding-top:10px}
+  .rc-pay .k{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+  .rc-pay .v{font-family:var(--mono);font-weight:600;font-size:13px;margin-top:2px}
+  .rc-pay .v.g{color:var(--grace)} .rc-pay .v.post{color:var(--post)}
+  .rc-lumps{font-size:12px;color:var(--ink-soft);margin-top:10px}
+  .rc-lumps b{color:var(--ink);font-family:var(--mono);font-weight:600}
+  .rc-bottom{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);margin-top:11px;padding-top:10px;gap:10px}
+  .rc-bottom .lbl{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+  .rc-over{font-family:var(--mono);font-weight:700;font-size:15px}
+  .rc-save{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--grace);text-align:right}
+  .cards .empty{padding:22px 16px;text-align:center;color:var(--ink-soft);font-size:13px;grid-column:1/-1;background:var(--card);border:1px dashed var(--line);border-radius:12px}
   .monthbadge{font-family:var(--mono);font-weight:700;font-size:15px;min-width:64px;text-align:right}
 
   .result{margin-top:20px;border-top:1px dashed var(--line);padding-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -109,9 +144,9 @@
       <div class="field"><label>Платёж 1-й год <span class="hint">мес. 1–12</span><button class="minbtn" data-min="p1">Мин</button></label><input type="number" id="p1" step="0.01"></div>
       <div class="field"><label>Платёж 2-й год <span class="hint">мес. 13–24</span><button class="minbtn" data-min="p2">Мин</button></label><input type="number" id="p2" step="0.01"></div>
       <div class="field"><label>Платёж 3-й+ год <span class="hint">мес. 25+</span><button class="minbtn" data-min="p3">Мин</button></label><input type="number" id="p3" step="0.01"></div>
-      <div class="field"><label>Досрочный взнос <span class="hint">разовый, BYN</span></label><input type="number" id="lump" step="1000" value="0"></div>
-      <div class="field full"><label>Месяц взноса <span class="hint">в пределах грейса</span></label>
-        <div class="monthrow"><input type="range" id="lumpMonth" min="1" max="24" step="1" value="13"><span class="monthbadge" id="lumpMonthBadge">13 мес.</span></div>
+      <div class="field full">
+        <label>Досрочные погашения <span class="hint">частичные, в грейс</span><button class="minbtn" id="addLump">＋ Добавить</button></label>
+        <div id="lumpList"></div>
       </div>
     </div>
 
@@ -131,25 +166,14 @@
 
   <h2>Сохранённые расчёты</h2>
   <div class="synced"><span class="dot" id="syncDot"></span><span id="syncText">Подключение к базе…</span></div>
-  <div class="savecard">
-    <div class="scroll">
-      <table>
-        <thead><tr>
-          <th>Сумма</th><th>Грейс</th><th>Ставки&nbsp;%</th><th>Срок</th>
-          <th>1 год</th><th>2 год</th><th class="post">3+ год</th>
-          <th>Взнос (мес.)</th><th>Всего</th><th>Переплата</th><th>Экономия</th><th></th>
-        </tr></thead>
-        <tbody id="saveBody"></tbody>
-      </table>
-    </div>
-  </div>
+  <div class="cards" id="saveBody"></div>
 
   <div class="notes">
     <h3>Как это считается</h3>
     <ul>
       <li><b>«Мин».</b> В грейс — только начисленные проценты (тело не гаснет); для 3-го+ года — аннуитет по ставке после грейса, гасящий остаток за оставшийся срок.</li>
       <li><b>Ставка по месяцам.</b> Пока номер месяца ≤ длины грейса — льготная ставка, дальше — основная. Год платежа и длина грейса задаются независимо.</li>
-      <li><b>Досрочный взнос</b> уменьшает тело в выбранном месяце грейса — так падает остаток к 3-му году и платёж по основной ставке.</li>
+      <li><b>Досрочные погашения</b> — можно добавить несколько (своя сумма в свой месяц грейса). Каждое уменьшает тело в свой месяц, снижая остаток к 3-му году и платёж по основной ставке.</li>
       <li><b>Экономия</b> — разница переплаты относительно минимальных платежей во всех годах без взноса.</li>
     </ul>
   </div>
@@ -201,13 +225,27 @@
   function num(id){ var v=parseFloat(el(id).value); return isNaN(v)?0:v; }
   function int(id){ var v=parseInt(el(id).value); return isNaN(v)?0:v; }
   var mode={ p1:'min', p2:'min', p3:'min' };
+  var lumps=[]; // [{m, a}] досрочные погашения (состояние UI)
+  function validLumps(){ var g=int('graceM'); return lumps.map(function(l){ return {m:Math.max(1,Math.min(g||l.m,l.m)), a:+l.a||0}; }).filter(function(l){ return l.a>0 && l.m>0; }); }
+  function renderLumps(){
+    var c=el('lumpList'); var g=int('graceM')||24;
+    if(!lumps.length){ c.innerHTML='<div class="nolump">Пока нет досрочных погашений. «＋ Добавить», чтобы внести.</div>'; return; }
+    c.innerHTML=lumps.map(function(l,i){
+      return '<div class="lumprow">'
+        +'<div class="lf mo"><span>Месяц (1–'+g+')</span><input type="number" class="lm" data-i="'+i+'" min="1" max="'+g+'" step="1" value="'+l.m+'"></div>'
+        +'<div class="lf"><span>Сумма, BYN</span><input type="number" class="la" data-i="'+i+'" step="1000" value="'+l.a+'"></div>'
+        +'<button class="lumpdel" data-i="'+i+'" title="Удалить">✕</button>'
+        +'</div>';
+    }).join('');
+  }
 
   function simulate(cfg){
-    var P0=cfg.P0, rg=cfg.rateG/100/12, rp=cfg.rateP/100/12, N=cfg.term, gM=cfg.graceM, lump=cfg.lump, lM=cfg.lumpMonth;
+    var P0=cfg.P0, rg=cfg.rateG/100/12, rp=cfg.rateP/100/12, N=cfg.term, gM=cfg.graceM;
+    var lumps=cfg.lumps||[];
     var balance=P0, totalPaid=0, grows=false, payoff=0, bal25=null, y3min=null, u1=null, u2=null, u3=null;
     var CAP=Math.max(N,12)+1200;
     for(var m=1;m<=CAP;m++){
-      if(m===lM && lump>0){ var eff=Math.min(lump,balance); balance-=eff; totalPaid+=eff; }
+      for(var li=0;li<lumps.length;li++){ if(lumps[li].m===m && lumps[li].a>0){ var eff=Math.min(lumps[li].a,balance); balance-=eff; totalPaid+=eff; } }
       if(m===25) bal25=balance;
       if(balance<=0.005){ balance=0; payoff=m-1; break; }
       var rate=(m<=gM)?rg:rp, interest=balance*rate, pay;
@@ -225,14 +263,11 @@
   }
   function readCfg(){ return { P0:num('sum'), graceM:int('graceM'), rateG:num('rateG'), rateP:num('rateP'), term:int('term'),
     p1:mode.p1==='min'?'min':num('p1'), p2:mode.p2==='min'?'min':num('p2'), p3:mode.p3==='min'?'min':num('p3'),
-    lump:num('lump'), lumpMonth:int('lumpMonth') }; }
-  function minCfg(c){ return {P0:c.P0,graceM:c.graceM,rateG:c.rateG,rateP:c.rateP,term:c.term,p1:'min',p2:'min',p3:'min',lump:0,lumpMonth:0}; }
+    lumps:validLumps() }; }
+  function minCfg(c){ return {P0:c.P0,graceM:c.graceM,rateG:c.rateG,rateP:c.rateP,term:c.term,p1:'min',p2:'min',p3:'min',lumps:[]}; }
   function syncMinButtons(){ ['p1','p2','p3'].forEach(function(k){ document.querySelector('.minbtn[data-min="'+k+'"]').classList.toggle('active',mode[k]==='min'); }); }
 
   function update(){
-    var gM=int('graceM'), slider=el('lumpMonth');
-    slider.max=Math.max(1,gM); if(parseInt(slider.value)>gM) slider.value=gM;
-    el('lumpMonthBadge').textContent=slider.value+' мес.';
     var cfg=readCfg(); if(cfg.P0<=0||cfg.term<=0) return;
     var r=simulate(cfg);
     if(mode.p1==='min') el('p1').value=r.p1.toFixed(2);
@@ -256,7 +291,19 @@
   }
   document.querySelectorAll('.minbtn').forEach(function(b){ b.addEventListener('click',function(){ mode[b.getAttribute('data-min')]='min'; update(); }); });
   ['p1','p2','p3'].forEach(function(k){ el(k).addEventListener('input',function(){ mode[k]='fixed'; update(); }); });
-  ['sum','graceM','rateG','rateP','term','lump','lumpMonth'].forEach(function(k){ el(k).addEventListener('input',update); });
+  ['sum','graceM','rateG','rateP','term'].forEach(function(k){ el(k).addEventListener('input',update); });
+  el('graceM').addEventListener('input',renderLumps);
+  el('addLump').addEventListener('click',function(e){ e.preventDefault(); var g=int('graceM')||24; lumps.push({m:Math.min(13,g), a:50000}); renderLumps(); update(); });
+  el('lumpList').addEventListener('input',function(e){
+    var t=e.target, i=+t.getAttribute('data-i'); if(isNaN(i)||!lumps[i]) return;
+    if(t.classList.contains('lm')){ var g=int('graceM')||24; var v=Math.max(1,Math.min(g,parseInt(t.value)||1)); lumps[i].m=v; }
+    else if(t.classList.contains('la')){ lumps[i].a=parseFloat(t.value)||0; }
+    update();
+  });
+  el('lumpList').addEventListener('click',function(e){
+    var b=e.target.closest('.lumpdel'); if(!b) return; e.preventDefault();
+    lumps.splice(+b.getAttribute('data-i'),1); renderLumps(); update();
+  });
   el('resetBtn').addEventListener('click',function(){ mode={p1:'min',p2:'min',p3:'min'}; update(); });
 
   /* ---------- Хранилище: Firebase Realtime DB ---------- */
@@ -267,45 +314,59 @@
     t.textContent = ok ? 'База подключена · записи сохраняются' : ('Локальный режим'+(msg?' ('+msg+')':''));
   }
   function round2(x){ return Math.round((+x||0)*100)/100; }
-  // Пакуем ТОЛЬКО входные параметры. Короткие ключи; поля с «мин»/нулём опускаем.
+  // Пакуем ТОЛЬКО входные параметры. Короткие ключи; поля с «мин»/пустым опускаем.
   // s=сумма g=грейс(мес) a=ставка грейс b=ставка после n=срок
-  // x/y/z=фикс. платёж 1/2/3-го года (нет ключа = «мин»)  L=взнос m=месяц взноса
-  // Производные (платежи, всего, переплата, экономия) и время НЕ храним:
-  // порядок берём из chronologically-sortable push-ключа.
+  // x/y/z=фикс. платёж 1/2/3-го года (нет ключа = «мин»)
+  // d=досрочные погашения: массив пар [месяц, сумма]  (опускается, если пусто)
+  // Производные (платежи, всего, переплата) и время НЕ храним; порядок — из push-ключа.
   function pack(){
     var cfg=readCfg(); if(cfg.P0<=0||cfg.term<=0) return null;
     var o={ s:round2(cfg.P0), g:cfg.graceM, a:cfg.rateG, b:cfg.rateP, n:cfg.term };
     if(mode.p1!=='min') o.x=round2(num('p1'));
     if(mode.p2!=='min') o.y=round2(num('p2'));
     if(mode.p3!=='min') o.z=round2(num('p3'));
-    if(cfg.lump>0){ o.L=round2(cfg.lump); o.m=cfg.lumpMonth; }
+    var ds=cfg.lumps.map(function(l){ return [l.m, round2(l.a)]; });
+    if(ds.length) o.d=ds;
     return o;
+  }
+  function readLumps(d){
+    if(!d) return [];
+    var arr=Array.isArray(d)?d:Object.keys(d).map(function(k){return d[k];});
+    return arr.filter(Boolean).map(function(pr){
+      if(Array.isArray(pr)) return {m:+pr[0]||0, a:+pr[1]||0};
+      return {m:+pr.m||0, a:+pr.a||0};
+    }).filter(function(l){ return l.a>0 && l.m>0; });
   }
   function unpack(o){
     o=o||{};
     return { P0:+o.s||0, graceM:+o.g||0, rateG:+o.a||0, rateP:+o.b||0, term:+o.n||0,
       p1:(o.x!=null)?+o.x:'min', p2:(o.y!=null)?+o.y:'min', p3:(o.z!=null)?+o.z:'min',
-      lump:+o.L||0, lumpMonth:+o.m||0 };
+      lumps:readLumps(o.d) };
   }
   function renderSaved(){
-    if(!saved.length){ body.innerHTML='<tr><td class="empty" colspan="12">Пока пусто — нажмите «Сохранить расчёт».</td></tr>'; return; }
+    if(!saved.length){ body.innerHTML='<div class="empty">Пока пусто — нажмите «Сохранить расчёт».</div>'; return; }
     body.innerHTML=saved.map(function(item){
       var cfg=unpack(item.o);
       var r=simulate(cfg), base=simulate(minCfg(cfg)), save=base.over-r.over;
-      return '<tr>'
-        +'<td>'+fmt0(cfg.P0)+'</td>'
-        +'<td class="g">'+cfg.graceM+' мес.</td>'
-        +'<td class="cond">'+fmt2(cfg.rateG)+' / '+fmt2(cfg.rateP)+' %</td>'
-        +'<td>'+cfg.term+' мес.</td>'
-        +'<td class="g">'+fmt(r.p1)+'</td>'
-        +'<td class="g">'+fmt(r.p2)+'</td>'
-        +'<td class="p">'+fmt(r.y3pay)+'</td>'
-        +'<td>'+(cfg.lump>0?fmt0(cfg.lump)+' ('+cfg.lumpMonth+')':'—')+'</td>'
-        +'<td>'+fmt(r.total)+'</td>'
-        +'<td>'+fmt(r.over)+'</td>'
-        +'<td class="g">'+(save>1?fmt(save):'—')+'</td>'
-        +'<td><button class="del" data-key="'+item._key+'" title="Удалить">✕</button></td>'
-        +'</tr>';
+      var lumpTxt = cfg.lumps.length
+        ? cfg.lumps.sort(function(x,y){return x.m-y.m;}).map(function(l){ return '<b>'+fmt0(l.a)+'</b> (мес.'+l.m+')'; }).join(', ')
+        : '—';
+      return '<div class="rcard">'
+        +'<div class="rc-top"><div class="rc-sum">'+fmt0(cfg.P0)+' BYN'
+          +'<small>переплата '+fmt0(r.over)+' · срок '+(r.notPaid?'>'+cfg.term:r.payoff)+' мес.</small></div>'
+          +'<button class="rc-del" data-key="'+item._key+'" title="Удалить">✕</button></div>'
+        +'<div class="rc-chips"><span class="rc-chip">грейс '+cfg.graceM+' мес.</span>'
+          +'<span class="rc-chip">'+fmt2(cfg.rateG)+' / '+fmt2(cfg.rateP)+' %</span>'
+          +'<span class="rc-chip">срок '+cfg.term+' мес.</span></div>'
+        +'<div class="rc-pays">'
+          +'<div class="rc-pay"><div class="k">1 год</div><div class="v g">'+fmt(r.p1)+'</div></div>'
+          +'<div class="rc-pay"><div class="k">2 год</div><div class="v g">'+fmt(r.p2)+'</div></div>'
+          +'<div class="rc-pay"><div class="k">3+ год</div><div class="v post">'+fmt(r.y3pay)+'</div></div>'
+        +'</div>'
+        +'<div class="rc-lumps">Досрочные: '+lumpTxt+'</div>'
+        +'<div class="rc-bottom"><div><div class="lbl">Всего выплат</div><div class="rc-over">'+fmt0(r.total)+'</div></div>'
+          +'<div><div class="lbl" style="text-align:right">Экономия</div><div class="rc-save">'+(save>1?fmt0(save):'—')+'</div></div></div>'
+        +'</div>';
     }).join('');
   }
   function saveRecord(){
@@ -325,7 +386,7 @@
 
   el('saveBtn').addEventListener('click',saveRecord);
   el('clearBtn').addEventListener('click',clearAll);
-  body.addEventListener('click',function(e){ var b=e.target.closest('.del'); if(b) delRecord(b.getAttribute('data-key')); });
+  body.addEventListener('click',function(e){ var b=e.target.closest('.rc-del'); if(b) delRecord(b.getAttribute('data-key')); });
 
   function initStore(){
     try{
@@ -352,6 +413,7 @@
     }catch(e){ el('saveBtn').style.display=''; }
   }
 
+  renderLumps();
   initStore();
   update();
 })();
