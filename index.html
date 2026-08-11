@@ -1,718 +1,340 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>Списки</title>
-
-<!-- Telegram Mini Apps SDK -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кредит с грейс-периодом</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
-  /* ============================================================
-     ТЕМА
-     Цвета берутся из темы пользователя Telegram (--tg-theme-*),
-     а fallback-значения используются при открытии в обычном браузере.
-     Класс .tg на <html> ставится, когда мы внутри Telegram, — тогда
-     ручной dark-режим ниже отключается и побеждают переменные Telegram.
-     ============================================================ */
-  :root {
-    --bg:        var(--tg-theme-bg-color, #ffffff);
-    --text:      var(--tg-theme-text-color, #14181f);
-    --hint:      var(--tg-theme-hint-color, #8a9099);
-    --accent:    var(--tg-theme-button-color, #2f8fed);
-    --accent-tx: var(--tg-theme-button-text-color, #ffffff);
-    --link:      var(--tg-theme-link-color, #2f8fed);
-    --sec-bg:    var(--tg-theme-secondary-bg-color, #f1f3f6);
-    --card-bg:   var(--tg-theme-section-bg-color, #ffffff);
-    --sep:       var(--tg-theme-section-separator-color, #e7e9ee);
-    --danger:    var(--tg-theme-destructive-text-color, #e0364f);
-
-    --radius: 16px;
-    --radius-sm: 10px;
-    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  :root{
+    --paper:#F3F5F7; --card:#FFFFFF; --ink:#16222E; --ink-soft:#5A6B78; --line:#DCE3E8;
+    --input-bg:#FAFBFC; --accent:#16222E; --btn-text:#FFFFFF;
+    --grace:#0E9F6E; --post:#B4232A; --post-bg:rgba(180,35,42,.12);
+    --shadow:0 1px 2px rgba(20,34,46,.06),0 8px 24px rgba(20,34,46,.06);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    html:not(.tg) {
-      --bg: #17212b; --text: #f4f5f7; --hint: #7d8b99; --accent: #5aa7ea;
-      --accent-tx:#fff; --link:#6ab3f3; --sec-bg:#0e161f; --card-bg:#1d2733;
-      --sep:#26313d; --danger:#f16b7d;
-      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
-    }
-  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;padding:18px 14px calc(40px + env(safe-area-inset-bottom))}
+  .wrap{max-width:860px;margin:0 auto}
 
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: var(--font);
-    background: var(--sec-bg);
-    color: var(--text);
-    font-size: 16px;
-    line-height: 1.4;
-    min-height: 100dvh;
-    overscroll-behavior-y: none;
-    -webkit-user-select: none; user-select: none;
-  }
-  input { font-family: inherit; }
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:600}
+  h1{font-size:clamp(20px,5vw,28px);line-height:1.12;margin:.3em 0 .1em;letter-spacing:-.02em}
+  .lead{color:var(--ink-soft);font-size:13.5px;margin:0 0 16px}
+  h2{font-size:17px;letter-spacing:-.01em;margin:26px 0 6px}
+  .grouptitle{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;margin:6px 0 12px}
 
-  .wrap { max-width: 620px; margin: 0 auto; padding: 12px 14px 120px; }
+  .calc{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field label{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px;gap:8px}
+  .field label .hint{font-weight:400;color:var(--ink-soft)}
+  .minbtn{border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:7px;padding:3px 9px;font-size:11px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:.12s}
+  .minbtn:hover{border-color:var(--grace);color:var(--grace)}
+  .minbtn.active{background:var(--grace);border-color:var(--grace);color:#fff}
+  input[type=number]{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink);background:var(--input-bg)}
+  input[type=number]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(128,128,128,.12)}
+  .full{grid-column:1 / -1}
+  .divider{grid-column:1/-1;height:1px;background:var(--line);margin:4px 0}
 
-  /* --- Header --- */
-  .top { display:flex; align-items:center; gap:10px; padding: 6px 2px 14px; min-height: 34px; }
-  .top h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -.02em; flex: 1; }
-  .top .sub { color: var(--hint); font-size: 13px; margin-top: 2px; }
-  .ghost-btn {
-    border: none; background: transparent; color: var(--link);
-    font-size: 15px; font-weight: 600; padding: 6px 4px; cursor: pointer;
-  }
+  .monthrow{display:flex;align-items:center;gap:14px}
+  .monthrow input[type=range]{flex:1;accent-color:var(--grace)}
+  .monthbadge{font-family:var(--mono);font-weight:700;font-size:15px;min-width:64px;text-align:right}
 
-  /* --- List cards (home) --- */
-  .cards { display: flex; flex-direction: column; gap: 10px; }
-  .card {
-    background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow);
-    display: flex; align-items: center; gap: 14px; padding: 14px 16px; cursor: pointer;
-    transition: transform .08s ease;
-  }
-  .card:active { transform: scale(.985); }
-  .card .emoji { font-size: 22px; width: 30px; text-align:center; flex: none; }
-  .card .meta { flex: 1; min-width: 0; }
-  .card .meta .name { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .meta .count { color: var(--hint); font-size: 13px; margin-top: 2px; display:flex; align-items:center; gap:6px; }
-  .badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 20px; background: var(--sec-bg); color: var(--hint); }
-  .badge.shared { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .result{margin-top:20px;border-top:1px dashed var(--line);padding-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .res{background:var(--paper);border-radius:11px;padding:12px 13px}
+  .res.hl{background:var(--post-bg)}
+  .res .rk{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);font-weight:600}
+  .res .rv{font-family:var(--mono);font-size:19px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .res.hl .rv{color:var(--post)}
+  .res .rsub{font-size:11px;color:var(--ink-soft);margin-top:3px}
+  .res .rsub.good{color:var(--grace);font-weight:600}
+  .warn{margin-top:12px;font-size:12.5px;color:var(--post);background:var(--post-bg);border-radius:9px;padding:9px 12px;display:none}
 
-  /* progress ring */
-  .ring { width: 30px; height: 30px; border-radius: 50%; flex: none; display:grid; place-items:center; }
-  .ring .inner { width: 22px; height: 22px; border-radius: 50%; background: var(--card-bg); display:grid; place-items:center;
-                 font-size: 10px; font-weight: 700; color: var(--hint); }
+  .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+  .btn{border-radius:10px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:.12s}
+  .btn.primary{background:var(--accent);color:var(--btn-text)}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn.ghost:hover{border-color:var(--ink-soft)}
 
-  /* --- Detail --- */
-  .items { display: flex; flex-direction: column; gap: 2px; background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-  .item { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--sep); }
-  .item:last-child { border-bottom: none; }
-  .item .check {
-    width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--hint);
-    flex: none; display: grid; place-items: center; cursor: pointer; transition: all .15s ease;
-  }
-  .item.done .check { background: var(--accent); border-color: var(--accent); }
-  .item .check svg { width: 14px; height: 14px; opacity: 0; transition: opacity .15s ease; }
-  .item.done .check svg { opacity: 1; }
-  .item .txt { flex: 1; min-width: 0; font-size: 16px; word-break: break-word; }
-  .item.done .txt { color: var(--hint); text-decoration: line-through; }
-  .item .qty { font-size: 13px; color: var(--hint); font-weight: 600; white-space: nowrap; }
-  .item .del { border:none; background:none; color: var(--hint); font-size: 20px; line-height:1; padding: 2px 4px; cursor:pointer; opacity:.6; }
+  .synced{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft);margin:14px 2px 6px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-soft)}
+  .dot.on{background:var(--grace)} .dot.off{background:var(--post)}
 
-  .section-label { color: var(--hint); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin: 22px 4px 8px; }
+  .savecard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:820px}
+  th,td{padding:11px 12px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;background:var(--input-bg);border-bottom:1px solid var(--line)}
+  thead th.post{color:var(--post)}
+  tbody td{border-bottom:1px solid var(--line);font-family:var(--mono);font-size:13px}
+  tbody td:first-child{font-family:var(--sans);font-size:13px;font-weight:600}
+  tbody td.cond{font-family:var(--sans);font-size:11.5px;color:var(--ink-soft);white-space:normal;font-weight:400}
+  td.p{color:var(--post);font-weight:600} td.g{color:var(--grace);font-weight:600}
+  .del{border:none;background:transparent;color:var(--ink-soft);font-size:16px;cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px}
+  .del:hover{background:var(--post-bg);color:var(--post)}
+  .empty{padding:24px 16px;text-align:center;color:var(--ink-soft);font-size:13px}
 
-  /* --- Add bar (sticky bottom) --- */
-  .addbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-    background: var(--sec-bg); padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--sep);
-  }
-  .addbar .row { max-width: 620px; margin: 0 auto; display: flex; gap: 8px; }
-  .field {
-    flex: 1; border: none; background: var(--card-bg); color: var(--text);
-    border-radius: 12px; padding: 13px 15px; font-size: 16px; outline: none;
-    box-shadow: var(--shadow); -webkit-user-select: text; user-select: text;
-  }
-  .field::placeholder { color: var(--hint); }
-  .btn {
-    border: none; border-radius: 12px; background: var(--accent); color: var(--accent-tx);
-    font-size: 16px; font-weight: 600; padding: 0 18px; cursor: pointer; flex: none;
-  }
-  .btn.wide { width: 100%; padding: 14px; }
-  .btn.sec { background: var(--card-bg); color: var(--link); box-shadow: var(--shadow); }
+  .notes{margin-top:26px;font-size:13px;color:var(--ink-soft);line-height:1.6}
+  .notes h3{color:var(--ink);font-size:15px;margin:0 0 8px}
+  .notes ul{margin:0;padding-left:20px} .notes li{margin-bottom:6px} .notes b{color:var(--ink)}
+  .foot{margin-top:22px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:12px}
+  .foot a{color:var(--accent);font-weight:600;text-decoration:none}
 
-  /* --- Empty state --- */
-  .empty { text-align: center; padding: 60px 20px; color: var(--hint); }
-  .empty .big { font-size: 46px; margin-bottom: 8px; }
-  .empty p { margin: 6px 0 20px; }
-
-  /* --- Modal --- */
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fade .15s ease; }
-  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
-  .sheet {
-    background: var(--bg); width: 100%; max-width: 620px; border-radius: 20px 20px 0 0;
-    padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); animation: slide .22s cubic-bezier(.2,.7,.3,1);
-  }
-  @keyframes slide { from { transform: translateY(100%) } to { transform: translateY(0) } }
-  .sheet h2 { margin: 0 0 4px; font-size: 19px; }
-  .sheet .hint { color: var(--hint); font-size: 13px; margin: 0 0 16px; }
-  .sheet .field { box-shadow: none; border: 1px solid var(--sep); margin-bottom: 12px; width: 100%; }
-  .rowline { display:flex; gap:8px; margin-bottom: 12px; }
-  .seg { flex:1; text-align:center; padding: 11px; border-radius: 10px; background: var(--sec-bg); font-weight:600; font-size:14px; cursor:pointer; color: var(--hint); }
-  .seg.on { background: var(--accent); color: var(--accent-tx); }
-  .dots { display:flex; gap:10px; flex-wrap:wrap; margin: 4px 0 18px; }
-  .dot { width: 30px; height: 30px; border-radius: 50%; cursor:pointer; border: 3px solid transparent; }
-  .dot.on { border-color: var(--text); }
-  .emojis { display:flex; gap:8px; flex-wrap:wrap; margin: 4px 0 18px; }
-  .em { width: 40px; height: 40px; border-radius: 10px; background: var(--sec-bg); display:grid; place-items:center; font-size:20px; cursor:pointer; }
-  .em.on { outline: 2px solid var(--accent); }
-  .share-box { background: var(--sec-bg); border-radius: 12px; padding: 12px 14px; font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; margin-bottom: 10px; -webkit-user-select: text; user-select: text; }
-  .danger-btn { color: var(--danger) !important; }
-  .stack { display: flex; flex-direction: column; gap: 10px; }
+  @media (max-width:600px){ .grid{grid-template-columns:1fr} .result{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
-<div class="wrap" id="app"><!-- rendered by JS --></div>
+<div class="wrap">
+
+  <div class="eyebrow">Аннуитет · грейс-период</div>
+  <h1>Кредитный калькулятор</h1>
+  <p class="lead">Условия кредита, платежи по годам и досрочный взнос. «Мин» — минимально возможный платёж. Экономия — относительно того же кредита при минимальных платежах без взноса. Сохранённые расчёты хранятся в вашем аккаунте.</p>
+
+  <div class="calc">
+    <div class="grouptitle">Параметры кредита</div>
+    <div class="grid">
+      <div class="field full"><label>Сумма кредита <span class="hint">BYN</span></label><input type="number" id="sum" step="1000" value="100000"></div>
+      <div class="field"><label>Грейс-период <span class="hint">мес.</span></label><input type="number" id="graceM" step="1" min="0" value="24"></div>
+      <div class="field"><label>Срок кредита <span class="hint">мес.</span></label><input type="number" id="term" step="1" min="1" value="239"></div>
+      <div class="field"><label>Ставка в грейс <span class="hint">% годовых</span></label><input type="number" id="rateG" step="0.1" min="0" value="1"></div>
+      <div class="field"><label>Ставка после грейса <span class="hint">% годовых</span></label><input type="number" id="rateP" step="0.1" min="0" value="15.4"></div>
+
+      <div class="divider"></div>
+      <div class="grouptitle full" style="margin-bottom:2px">Платежи и досрочный взнос</div>
+
+      <div class="field"><label>Платёж 1-й год <span class="hint">мес. 1–12</span><button class="minbtn" data-min="p1">Мин</button></label><input type="number" id="p1" step="0.01"></div>
+      <div class="field"><label>Платёж 2-й год <span class="hint">мес. 13–24</span><button class="minbtn" data-min="p2">Мин</button></label><input type="number" id="p2" step="0.01"></div>
+      <div class="field"><label>Платёж 3-й+ год <span class="hint">мес. 25+</span><button class="minbtn" data-min="p3">Мин</button></label><input type="number" id="p3" step="0.01"></div>
+      <div class="field"><label>Досрочный взнос <span class="hint">разовый, BYN</span></label><input type="number" id="lump" step="1000" value="0"></div>
+      <div class="field full"><label>Месяц взноса <span class="hint">в пределах грейса</span></label>
+        <div class="monthrow"><input type="range" id="lumpMonth" min="1" max="24" step="1" value="13"><span class="monthbadge" id="lumpMonthBadge">13 мес.</span></div>
+      </div>
+    </div>
+
+    <div class="result">
+      <div class="res"><div class="rk">Остаток к 25-му мес.</div><div class="rv" id="rBal">—</div><div class="rsub">тело к началу 3-го года</div></div>
+      <div class="res hl"><div class="rk">Платёж 3-й+ год</div><div class="rv" id="rPay">—</div><div class="rsub" id="rPaySub">—</div></div>
+      <div class="res"><div class="rk">Переплата за весь срок</div><div class="rv" id="rOver">—</div><div class="rsub good" id="rSave">—</div></div>
+    </div>
+    <div class="warn" id="warn"></div>
+
+    <div class="actions">
+      <button class="btn primary" id="saveBtn">＋ Сохранить расчёт</button>
+      <button class="btn ghost" id="resetBtn">Платежи → «Мин»</button>
+      <button class="btn ghost" id="clearBtn">Очистить всё</button>
+    </div>
+  </div>
+
+  <h2>Сохранённые расчёты</h2>
+  <div class="synced"><span class="dot" id="syncDot"></span><span id="syncText">Подключение к базе…</span></div>
+  <div class="savecard">
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Сумма</th><th>Условия</th><th>1 год</th><th>2 год</th><th class="post">3+ год</th>
+          <th>Взнос (мес.)</th><th>Всего</th><th>Переплата</th><th>Экономия</th><th></th>
+        </tr></thead>
+        <tbody id="saveBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h3>Как это считается</h3>
+    <ul>
+      <li><b>«Мин».</b> В грейс — только начисленные проценты (тело не гаснет); для 3-го+ года — аннуитет по ставке после грейса, гасящий остаток за оставшийся срок.</li>
+      <li><b>Ставка по месяцам.</b> Пока номер месяца ≤ длины грейса — льготная ставка, дальше — основная. Год платежа и длина грейса задаются независимо.</li>
+      <li><b>Досрочный взнос</b> уменьшает тело в выбранном месяце грейса — так падает остаток к 3-му году и платёж по основной ставке.</li>
+      <li><b>Экономия</b> — разница переплаты относительно минимальных платежей во всех годах без взноса.</li>
+    </ul>
+  </div>
+
+  <div class="foot">Не является офертой или финансовой консультацией. Открыть приложение: <a id="botLink" href="https://t.me/MeKi_pBot/spiski" target="_blank">@MeKi_pBot</a></div>
+</div>
 
 <script>
-/* ============================================================================
-   НАСТРОЙКИ  (единственное, что вам нужно потенциально трогать)
-   ============================================================================ */
+(function(){
+  var BOT_APP_LINK = "https://t.me/MeKi_pBot/spiski";
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyA4Xb44MhF02YxvWaZeH7fiqlKt1nSp0V8",
+    authDomain: "spiski-f27ac.firebaseapp.com",
+    databaseURL: "https://spiski-f27ac-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "spiski-f27ac"
+  };
 
-// Ссылка на ваш мини-апп в Telegram. Нужна ТОЛЬКО для «живого» шаринга по ссылке.
-// Формат: 'https://t.me/ВашБот/имяприложения'  (получите после /newapp в BotFather)
-// Оставьте пустым — тогда для живых списков будет показываться код для ввода вручную.
-const BOT_APP_LINK = "https://t.me/MeKi_pBot/spiski";
+  /* ---------- Telegram WebApp ---------- */
+  var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  function hexA(hex,a){ if(!hex) return 'rgba(128,128,128,'+a+')'; var h=hex.replace('#',''); if(h.length===3)h=h.split('').map(function(c){return c+c;}).join(''); var n=parseInt(h,16); return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'; }
+  function applyTheme(){
+    if(!tg) return; var t=tg.themeParams||{}, s=document.documentElement.style;
+    if(t.text_color) s.setProperty('--ink',t.text_color);
+    if(t.hint_color){ s.setProperty('--ink-soft',t.hint_color); s.setProperty('--line',hexA(t.hint_color,.28)); }
+    if(t.bg_color) s.setProperty('--card',t.bg_color);
+    if(t.secondary_bg_color){ s.setProperty('--paper',t.secondary_bg_color); s.setProperty('--input-bg',t.secondary_bg_color); }
+    else if(t.bg_color) s.setProperty('--paper',t.bg_color);
+    if(t.button_color) s.setProperty('--accent',t.button_color);
+    if(t.button_text_color) s.setProperty('--btn-text',t.button_text_color);
+    try{ tg.setBackgroundColor(t.secondary_bg_color||t.bg_color); }catch(e){}
+    try{ tg.setHeaderColor(t.secondary_bg_color||t.bg_color); }catch(e){}
+  }
+  var uid='web';
+  if(tg){
+    try{ tg.ready(); tg.expand(); }catch(e){}
+    applyTheme(); try{ tg.onEvent('themeChanged',applyTheme); }catch(e){}
+    if(tg.initDataUnsafe && tg.initDataUnsafe.user) uid=String(tg.initDataUnsafe.user.id);
+  }
+  if(uid==='web'){ try{ uid=localStorage.getItem('cg_uid')|| ('web_'+Math.random().toString(36).slice(2)); localStorage.setItem('cg_uid',uid); }catch(e){ uid='web_'+Math.random().toString(36).slice(2); } }
+  document.getElementById('botLink').href=BOT_APP_LINK;
+  function haptic(){ try{ tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred('light'); }catch(e){} }
 
-// Firebase — включает «живой» общий список (правки видны всем в реальном времени).
-// Пусто = приложение работает локально (несколько списков + отправка сообщением).
-// Как заполнить — смотрите README, раздел «Живой шаринг».
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyA4Xb44MhF02YxvWaZeH7fiqlKt1nSp0V8",
-  authDomain: "spiski-f27ac.firebaseapp.com",
-  databaseURL: "https://spiski-f27ac-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "spiski-f27ac",
-};
+  /* ---------- Расчётная модель ---------- */
+  function annuity(P,r,n){ if(n<=0)return P>0?P:0; if(r===0)return P/n; var f=Math.pow(1+r,n); return P*r*f/(f-1); }
+  function fmt(x){ return (isFinite(x)?x:0).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmt0(x){ return (isFinite(x)?x:0).toLocaleString('ru-RU',{maximumFractionDigits:0}); }
+  function fmt2(x){ return (Math.round(x*100)/100).toString().replace('.',','); }
+  function el(id){ return document.getElementById(id); }
+  function num(id){ var v=parseFloat(el(id).value); return isNaN(v)?0:v; }
+  function int(id){ var v=parseInt(el(id).value); return isNaN(v)?0:v; }
+  var mode={ p1:'min', p2:'min', p3:'min' };
 
-/* ============================================================================
-   Инициализация Telegram
-   ============================================================================ */
-const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-if (tg) {
-  document.documentElement.classList.add("tg");
-  try { tg.ready(); tg.expand(); } catch (e) {}
-  try { tg.setHeaderColor && tg.setHeaderColor("secondary_bg_color"); } catch (e) {}
-}
-const USER_ID = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) || "anon";
-
-function haptic(kind) {
-  try {
-    if (!tg || !tg.HapticFeedback) return;
-    if (kind === "success") tg.HapticFeedback.notificationOccurred("success");
-    else tg.HapticFeedback.impactOccurred(kind || "light");
-  } catch (e) {}
-}
-
-/* ============================================================================
-   Хранилище: CloudStorage Telegram (кросс-девайс) или localStorage (браузер)
-   ============================================================================ */
-const CS = tg && tg.CloudStorage && tg.CloudStorage.setItem ? tg.CloudStorage : null;
-const LS_KEY = "spiski.v1";
-
-// CloudStorage Telegram: ключи только [A-Za-z0-9_-], значение <= 4096 символов на ключ.
-// Поэтому: имена ключей без ":", а список режем на части (chunks) при сохранении.
-const CS_CHUNK = 3000; // запас относительно лимита 4096
-const Store = CS ? {
-  csGet: (k) => new Promise((r) => CS.getItem(k, (e, v) => r(e ? null : v))),
-  csSet: (k, v) => new Promise((r) => CS.setItem(k, v, (e, ok) => r(!e && ok))),
-  csDel: (k) => new Promise((r) => CS.removeItem(k, () => r())),
-  metaKey: (id) => "l_" + id,          // хранит число частей
-  chunkKey: (id, i) => "l_" + id + "_" + i,
-  async load() {
-    const raw = await this.csGet("idx");
-    const ids = raw ? JSON.parse(raw) : [];
-    const out = [];
-    for (const id of ids) {
-      const n = parseInt((await this.csGet(this.metaKey(id))) || "0", 10);
-      if (!n) continue;
-      let enc = "";
-      for (let i = 0; i < n; i++) enc += (await this.csGet(this.chunkKey(id, i))) || "";
-      try { out.push(JSON.parse(decodeURIComponent(enc))); } catch (e) {}
+  function simulate(cfg){
+    var P0=cfg.P0, rg=cfg.rateG/100/12, rp=cfg.rateP/100/12, N=cfg.term, gM=cfg.graceM, lump=cfg.lump, lM=cfg.lumpMonth;
+    var balance=P0, totalPaid=0, grows=false, payoff=0, bal25=null, y3min=null, u1=null, u2=null, u3=null;
+    var CAP=Math.max(N,12)+1200;
+    for(var m=1;m<=CAP;m++){
+      if(m===lM && lump>0){ var eff=Math.min(lump,balance); balance-=eff; totalPaid+=eff; }
+      if(m===25) bal25=balance;
+      if(balance<=0.005){ balance=0; payoff=m-1; break; }
+      var rate=(m<=gM)?rg:rp, interest=balance*rate, pay;
+      if(m<=12){ pay=(cfg.p1==='min')?interest:cfg.p1; if(u1===null)u1=pay; }
+      else if(m<=24){ pay=(cfg.p2==='min')?interest:cfg.p2; if(u2===null)u2=pay; }
+      else { if(y3min===null)y3min=annuity(balance,rp,Math.max(N-24,1)); pay=(cfg.p3==='min')?y3min:cfg.p3; if(u3===null)u3=pay; }
+      if(pay<interest-0.005) grows=true;
+      if(pay>balance+interest) pay=balance+interest;
+      balance=balance+interest-pay; if(balance<0)balance=0; totalPaid+=pay;
+      if(balance<=0.005){ balance=0; payoff=m; break; }
     }
-    return out;
-  },
-  async saveOne(list) {
-    const raw = await this.csGet("idx");
-    let ids = raw ? JSON.parse(raw) : [];
-    if (!ids.includes(list.id)) { ids.push(list.id); await this.csSet("idx", JSON.stringify(ids)); }
-    // encodeURIComponent -> строка становится ASCII, режется по символам безопасно
-    const enc = encodeURIComponent(JSON.stringify(list));
-    const n = Math.max(1, Math.ceil(enc.length / CS_CHUNK));
-    const oldN = parseInt((await this.csGet(this.metaKey(list.id))) || "0", 10);
-    for (let i = 0; i < n; i++) {
-      const ok = await this.csSet(this.chunkKey(list.id, i), enc.slice(i * CS_CHUNK, (i + 1) * CS_CHUNK));
-      if (!ok) { toast("Не удалось сохранить в облако Telegram"); return; }
-    }
-    await this.csSet(this.metaKey(list.id), String(n));
-    for (let i = n; i < oldN; i++) await this.csDel(this.chunkKey(list.id, i)); // убрать лишние части
-  },
-  async removeOne(id) {
-    const raw = await this.csGet("idx");
-    let ids = raw ? JSON.parse(raw) : [];
-    ids = ids.filter((x) => x !== id);
-    await this.csSet("idx", JSON.stringify(ids));
-    const n = parseInt((await this.csGet(this.metaKey(id))) || "0", 10);
-    for (let i = 0; i < n; i++) await this.csDel(this.chunkKey(id, i));
-    await this.csDel(this.metaKey(id));
-  },
-} : {
-  read() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch (e) { return []; } },
-  write(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); },
-  async load() { return this.read(); },
-  async saveOne(list) { const a = this.read().filter((l) => l.id !== list.id); a.push(list); this.write(a); },
-  async removeOne(id) { this.write(this.read().filter((l) => l.id !== id)); },
-};
-
-/* ============================================================================
-   Состояние
-   ============================================================================ */
-const COLORS = ["#eb5545", "#f5911e", "#f7c948", "#3fa66a", "#33a1c9", "#5b7cf7", "#9b6dff", "#e0568b"];
-const EMOJIS = ["🛒", "📝", "✅", "🎁", "🍳", "🧳", "🏠", "💊", "🎉", "📚"];
-
-let state = { screen: "home", activeId: null, lists: [], draft: "" };
-const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const app = document.getElementById("app");
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const active = () => state.lists.find((l) => l.id === state.activeId);
-
-/* ============================================================================
-   Telegram BackButton
-   ============================================================================ */
-function syncBackButton() {
-  if (!tg || !tg.BackButton) return;
-  if (state.screen === "detail") { tg.BackButton.show(); }
-  else { tg.BackButton.hide(); }
-}
-if (tg && tg.BackButton) tg.BackButton.onClick(() => goHome());
-
-function goHome() { state.screen = "home"; state.activeId = null; state.draft = ""; render(); }
-function openList(id) { state.screen = "detail"; state.activeId = id; state.draft = ""; render(); }
-
-/* ============================================================================
-   Рендер
-   ============================================================================ */
-function render() {
-  syncBackButton();
-  if (state.screen === "detail" && active()) renderDetail();
-  else renderHome();
-}
-
-function ringHTML(done, total, color) {
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  return `<div class="ring" style="background:conic-gradient(${color} ${pct * 3.6}deg, var(--sep) 0)">
-            <div class="inner">${total ? pct + "%" : "—"}</div>
-          </div>`;
-}
-
-function renderHome() {
-  const lists = state.lists.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  let body;
-  if (!lists.length) {
-    body = `<div class="empty">
-      <div class="big">🗒️</div>
-      <p>Пока нет списков.<br>Создайте первый — покупки или дела.</p>
-      <button class="btn wide" data-act="new">Создать список</button>
-      <div style="height:10px"></div>
-      <button class="ghost-btn" data-act="join">Присоединиться по коду</button>
-    </div>`;
-  } else {
-    const cards = lists.map((l) => {
-      const total = l.items.length, done = l.items.filter((i) => i.done).length;
-      const sharedBadge = l.shared ? `<span class="badge shared">${l.role === "owner" ? "общий" : "участник"}</span>` : "";
-      const typeLabel = l.type === "shopping" ? "покупки" : "дела";
-      return `<div class="card" data-open="${l.id}">
-        <div class="emoji">${l.emoji || "📝"}</div>
-        <div class="meta">
-          <div class="name">${esc(l.title)}</div>
-          <div class="count"><span class="badge">${typeLabel}</span>${sharedBadge}<span>${done}/${total}</span></div>
-        </div>
-        ${ringHTML(done, total, l.color || COLORS[4])}
-      </div>`;
-    }).join("");
-    body = `<div class="cards">${cards}</div>
-      <div style="height:16px"></div>
-      <button class="btn wide" data-act="new">＋ Новый список</button>
-      <div style="height:10px"></div>
-      <button class="ghost-btn" style="display:block;margin:0 auto" data-act="join">Присоединиться по коду</button>`;
+    if(bal25===null)bal25=balance;
+    return { bal25:bal25, p1:u1!==null?u1:0, p2:u2!==null?u2:0, y3pay:u3!==null?u3:(y3min||0),
+             total:totalPaid, over:totalPaid-P0, grows:grows, payoff:payoff||CAP, notPaid:balance>0.005 };
   }
-  app.innerHTML = `
-    <div class="top"><h1>Списки</h1></div>
-    ${body}`;
-  app.querySelectorAll("[data-open]").forEach((el) => el.onclick = () => { haptic("light"); openList(el.dataset.open); });
-  const nb = app.querySelector('[data-act="new"]'); if (nb) nb.onclick = openNewListSheet;
-  const jb = app.querySelector('[data-act="join"]'); if (jb) jb.onclick = openJoinSheet;
-}
+  function readCfg(){ return { P0:num('sum'), graceM:int('graceM'), rateG:num('rateG'), rateP:num('rateP'), term:int('term'),
+    p1:mode.p1==='min'?'min':num('p1'), p2:mode.p2==='min'?'min':num('p2'), p3:mode.p3==='min'?'min':num('p3'),
+    lump:num('lump'), lumpMonth:int('lumpMonth') }; }
+  function minCfg(c){ return {P0:c.P0,graceM:c.graceM,rateG:c.rateG,rateP:c.rateP,term:c.term,p1:'min',p2:'min',p3:'min',lump:0,lumpMonth:0}; }
+  function syncMinButtons(){ ['p1','p2','p3'].forEach(function(k){ document.querySelector('.minbtn[data-min="'+k+'"]').classList.toggle('active',mode[k]==='min'); }); }
 
-function renderDetail() {
-  const l = active();
-  const open = l.items.filter((i) => !i.done);
-  const done = l.items.filter((i) => i.done);
-  const itemRow = (i) => `<div class="item ${i.done ? "done" : ""}" data-id="${i.id}">
-      <div class="check" data-toggle="${i.id}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-tx)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-      </div>
-      <div class="txt">${esc(i.text)}</div>
-      ${i.qty && i.qty > 1 ? `<div class="qty">×${i.qty}</div>` : ""}
-      <button class="del" data-del="${i.id}">×</button>
-    </div>`;
-
-  const openHTML = open.length ? `<div class="items">${open.map(itemRow).join("")}</div>` : "";
-  const doneHTML = done.length ? `<div class="section-label">Готово · ${done.length}</div><div class="items">${done.map(itemRow).join("")}</div>` : "";
-  const emptyHTML = (!open.length && !done.length) ? `<div class="empty"><div class="big">${l.emoji || "📝"}</div><p>Список пуст.<br>Добавьте первый пункт ниже.</p></div>` : "";
-  const ph = l.type === "shopping" ? "Товар (напр. Молоко 2)" : "Новый пункт…";
-
-  app.innerHTML = `
-    <div class="top">
-      ${tg ? "" : '<button class="ghost-btn" data-act="back">← Назад</button>'}
-      <div style="flex:1;min-width:0">
-        <h1 style="font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.emoji || ""} ${esc(l.title)}</h1>
-      </div>
-      <button class="ghost-btn" data-act="share">Поделиться</button>
-      <button class="ghost-btn" data-act="menu">⋯</button>
-    </div>
-    ${emptyHTML}${openHTML}${doneHTML}
-    <div class="addbar"><div class="row">
-      <input class="field" id="add" placeholder="${ph}" autocomplete="off" />
-      <button class="btn" data-act="add">Добавить</button>
-    </div></div>`;
-
-  app.querySelectorAll("[data-toggle]").forEach((el) => el.onclick = () => toggleItem(el.dataset.toggle));
-  app.querySelectorAll("[data-del]").forEach((el) => el.onclick = () => removeItem(el.dataset.del));
-  app.querySelector('[data-act="share"]').onclick = () => openShareSheet(l);
-  app.querySelector('[data-act="menu"]').onclick = () => openListMenu(l);
-  const backBtn = app.querySelector('[data-act="back"]'); if (backBtn) backBtn.onclick = goHome;
-
-  const input = app.querySelector("#add");
-  input.value = state.draft || "";
-  input.oninput = () => { state.draft = input.value; };
-  const submit = () => addItem(input.value);
-  app.querySelector('[data-act="add"]').onclick = submit;
-  input.onkeydown = (e) => { if (e.key === "Enter") submit(); };
-  if (state.draft) input.focus();
-}
-
-/* ============================================================================
-   Операции над списками / пунктами
-   ============================================================================ */
-async function createList({ title, type, color, emoji }) {
-  const l = { id: genId(), title: title.trim() || "Список", type, color, emoji, items: [], shared: false, shareId: null, role: "owner", createdAt: Date.now(), updatedAt: Date.now() };
-  state.lists.push(l);
-  await Store.saveOne(l);
-  haptic("success");
-  openList(l.id);
-}
-
-async function deleteList(l) {
-  if (l.shared && l.role === "owner") { try { await fbDel("shared/" + l.shareId); } catch (e) {} }
-  if (l.shared && subs[l.shareId]) { fbOff(l.shareId); }
-  state.lists = state.lists.filter((x) => x.id !== l.id);
-  await Store.removeOne(l.id);
-  goHome();
-}
-
-function parseQty(text) {
-  const m = text.trim().match(/^(.*?)[\s×x*]+(\d+)$/i);
-  if (m && m[1].trim()) return { text: m[1].trim(), qty: parseInt(m[2], 10) };
-  return { text: text.trim(), qty: 1 };
-}
-
-async function addItem(raw) {
-  const l = active(); if (!l || !raw.trim()) return;
-  const parsed = l.type === "shopping" ? parseQty(raw) : { text: raw.trim(), qty: 1 };
-  const item = { id: genId(), text: parsed.text, qty: parsed.qty, done: false, createdAt: Date.now() };
-  state.draft = "";
-  if (l.shared) { await fbSet("shared/" + l.shareId + "/items/" + item.id, item); await fbSet("shared/" + l.shareId + "/updatedAt", Date.now()); }
-  l.items.push(item); l.updatedAt = Date.now();
-  await Store.saveOne(l);
-  haptic("light");
-  render();
-}
-
-async function toggleItem(id) {
-  const l = active(); const it = l.items.find((i) => i.id === id); if (!it) return;
-  it.done = !it.done; l.updatedAt = Date.now();
-  if (l.shared) await fbSet("shared/" + l.shareId + "/items/" + id + "/done", it.done);
-  await Store.saveOne(l);
-  haptic("light");
-  render();
-}
-
-async function removeItem(id) {
-  const l = active();
-  if (l.shared) await fbDel("shared/" + l.shareId + "/items/" + id);
-  l.items = l.items.filter((i) => i.id !== id); l.updatedAt = Date.now();
-  await Store.saveOne(l);
-  render();
-}
-
-/* ============================================================================
-   Модальные окна (bottom sheet)
-   ============================================================================ */
-function openSheet(html) {
-  closeSheet();
-  const ov = document.createElement("div");
-  ov.className = "overlay"; ov.id = "overlay";
-  ov.innerHTML = `<div class="sheet">${html}</div>`;
-  ov.onclick = (e) => { if (e.target === ov) closeSheet(); };
-  document.body.appendChild(ov);
-  return ov;
-}
-function closeSheet() { const o = document.getElementById("overlay"); if (o) o.remove(); }
-
-function openNewListSheet() {
-  let picked = { type: "shopping", color: COLORS[4], emoji: "🛒" };
-  const ov = openSheet(`
-    <h2>Новый список</h2>
-    <p class="hint">Дайте название и выберите тип.</p>
-    <input class="field" id="nl-name" placeholder="Например: Продукты на неделю" />
-    <div class="rowline">
-      <div class="seg on" data-type="shopping">🛒 Покупки</div>
-      <div class="seg" data-type="todo">✅ Дела</div>
-    </div>
-    <div class="emojis" id="nl-em">${EMOJIS.map((e, i) => `<div class="em ${i === 0 ? "on" : ""}" data-em="${e}">${e}</div>`).join("")}</div>
-    <div class="dots" id="nl-dots">${COLORS.map((c, i) => `<div class="dot ${i === 4 ? "on" : ""}" data-col="${c}" style="background:${c}"></div>`).join("")}</div>
-    <button class="btn wide" id="nl-create">Создать</button>`);
-
-  ov.querySelectorAll("[data-type]").forEach((el) => el.onclick = () => {
-    ov.querySelectorAll("[data-type]").forEach((x) => x.classList.remove("on")); el.classList.add("on");
-    picked.type = el.dataset.type;
-  });
-  ov.querySelectorAll("[data-em]").forEach((el) => el.onclick = () => {
-    ov.querySelectorAll("[data-em]").forEach((x) => x.classList.remove("on")); el.classList.add("on");
-    picked.emoji = el.dataset.em;
-  });
-  ov.querySelectorAll("[data-col]").forEach((el) => el.onclick = () => {
-    ov.querySelectorAll("[data-col]").forEach((x) => x.classList.remove("on")); el.classList.add("on");
-    picked.color = el.dataset.col;
-  });
-  ov.querySelector("#nl-create").onclick = () => {
-    const name = ov.querySelector("#nl-name").value;
-    closeSheet();
-    createList({ title: name, type: picked.type, color: picked.color, emoji: picked.emoji });
-  };
-  setTimeout(() => ov.querySelector("#nl-name").focus(), 100);
-}
-
-function openListMenu(l) {
-  const ov = openSheet(`
-    <h2>${l.emoji || ""} ${esc(l.title)}</h2>
-    <p class="hint">${l.items.length} пунктов${l.shared ? " · общий список" : ""}</p>
-    <div class="stack">
-      <button class="btn sec" data-a="rename">Переименовать</button>
-      <button class="btn sec" data-a="clear-done">Убрать выполненные</button>
-      <button class="btn sec danger-btn" data-a="delete">Удалить список</button>
-    </div>`);
-  ov.querySelector('[data-a="rename"]').onclick = () => { closeSheet(); openRenameSheet(l); };
-  ov.querySelector('[data-a="clear-done"]').onclick = async () => {
-    closeSheet();
-    const doneIds = l.items.filter((i) => i.done).map((i) => i.id);
-    for (const id of doneIds) { if (l.shared) await fbDel("shared/" + l.shareId + "/items/" + id); }
-    l.items = l.items.filter((i) => !i.done); l.updatedAt = Date.now();
-    await Store.saveOne(l); render();
-  };
-  ov.querySelector('[data-a="delete"]').onclick = () => {
-    closeSheet();
-    confirmAsk("Удалить список «" + l.title + "»?", () => deleteList(l));
-  };
-}
-
-function openRenameSheet(l) {
-  const ov = openSheet(`
-    <h2>Переименовать</h2>
-    <input class="field" id="rn" value="${esc(l.title)}" />
-    <button class="btn wide" id="rn-ok">Сохранить</button>`);
-  ov.querySelector("#rn-ok").onclick = async () => {
-    const v = ov.querySelector("#rn").value.trim(); closeSheet();
-    if (!v) return;
-    l.title = v; l.updatedAt = Date.now();
-    if (l.shared) await fbSet("shared/" + l.shareId + "/title", v);
-    await Store.saveOne(l); render();
-  };
-  setTimeout(() => ov.querySelector("#rn").select(), 100);
-}
-
-function confirmAsk(text, onYes) {
-  const ov = openSheet(`<h2>Подтверждение</h2><p class="hint">${esc(text)}</p>
-    <div class="stack">
-      <button class="btn wide danger-btn sec" id="yes">Да, удалить</button>
-      <button class="btn wide sec" id="no">Отмена</button>
-    </div>`);
-  ov.querySelector("#yes").onclick = () => { closeSheet(); onYes(); };
-  ov.querySelector("#no").onclick = closeSheet;
-}
-
-/* ============================================================================
-   ШАРИНГ
-   ============================================================================ */
-function listAsText(l) {
-  const lines = l.items.map((i) => (i.done ? "✅ " : "▫️ ") + i.text + (i.qty > 1 ? " ×" + i.qty : ""));
-  return (l.emoji ? l.emoji + " " : "") + l.title + "\n" + "―".repeat(12) + "\n" + (lines.join("\n") || "(пусто)");
-}
-
-function shareAsMessage(l) {
-  const text = listAsText(l);
-  const url = location.origin + location.pathname;
-  if (tg && tg.openTelegramLink) {
-    tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(text));
-  } else {
-    copy(text); toast("Список скопирован — вставьте в любой чат");
+  function update(){
+    var gM=int('graceM'), slider=el('lumpMonth');
+    slider.max=Math.max(1,gM); if(parseInt(slider.value)>gM) slider.value=gM;
+    el('lumpMonthBadge').textContent=slider.value+' мес.';
+    var cfg=readCfg(); if(cfg.P0<=0||cfg.term<=0) return;
+    var r=simulate(cfg);
+    if(mode.p1==='min') el('p1').value=r.p1.toFixed(2);
+    if(mode.p2==='min') el('p2').value=r.p2.toFixed(2);
+    if(mode.p3==='min') el('p3').value=r.y3pay.toFixed(2);
+    var base=simulate(minCfg(cfg));
+    el('rBal').textContent=fmt(r.bal25);
+    el('rPay').textContent=fmt(r.y3pay);
+    var diff=base.y3pay-r.y3pay;
+    var sub=(Math.abs(diff)>0.5?(diff>0?'−'+fmt(diff)+' vs мин':'+'+fmt(-diff)+' vs мин'):'минимальный');
+    sub+=' · срок ≈ '+(r.notPaid?'>'+cfg.term:r.payoff)+' мес.';
+    el('rPaySub').textContent=sub;
+    el('rOver').textContent=fmt(r.over);
+    var save=base.over-r.over;
+    el('rSave').textContent=Math.abs(save)>1?'экономия '+fmt(save)+' BYN':'базовый (мин.) вариант';
+    var w=el('warn');
+    if(r.notPaid){ w.style.display='block'; w.textContent='Платёж 3-го+ года не гасит кредит за указанный срок — увеличьте платёж или срок.'; }
+    else if(r.grows){ w.style.display='block'; w.textContent='В каком-то году платёж меньше начисляемых процентов — на этом отрезке долг растёт.'; }
+    else w.style.display='none';
+    syncMinButtons();
   }
-}
+  document.querySelectorAll('.minbtn').forEach(function(b){ b.addEventListener('click',function(){ mode[b.getAttribute('data-min')]='min'; update(); }); });
+  ['p1','p2','p3'].forEach(function(k){ el(k).addEventListener('input',function(){ mode[k]='fixed'; update(); }); });
+  ['sum','graceM','rateG','rateP','term','lump','lumpMonth'].forEach(function(k){ el(k).addEventListener('input',update); });
+  el('resetBtn').addEventListener('click',function(){ mode={p1:'min',p2:'min',p3:'min'}; update(); });
 
-function openShareSheet(l) {
-  const liveAvailable = SHARING_ENABLED;
-  let liveBlock;
-  if (!liveAvailable) {
-    liveBlock = `<p class="hint" style="margin-top:14px">💡 «Живой» общий список (правки видны у всех в реальном времени) включается бесплатным Firebase — см. README, раздел «Живой шаринг».</p>`;
-  } else if (!l.shared) {
-    liveBlock = `<button class="btn wide" id="go-live">🔗 Сделать общим (живой список)</button>
-      <p class="hint" style="margin-top:8px">Появится ссылка/код — отправьте нужным людям, и вы будете редактировать список вместе.</p>`;
-  } else {
-    const link = BOT_APP_LINK ? BOT_APP_LINK + "?startapp=j_" + l.shareId : "";
-    liveBlock = `<p class="hint">Общий список активен. Пригласите людей:</p>
-      ${link ? `<div class="share-box">${esc(link)}</div><button class="btn wide sec" id="cp-link">Скопировать ссылку</button><div style="height:10px"></div>` : ""}
-      <p class="hint">или код для ручного ввода («Присоединиться по коду»):</p>
-      <div class="share-box">${l.shareId}</div>
-      <button class="btn wide sec" id="cp-code">Скопировать код</button>`;
+  /* ---------- Хранилище: Firebase Realtime DB ---------- */
+  var saved=[], body=el('saveBody'), recordsRef=null, USING_FB=false;
+  function setStatus(ok,msg){
+    var d=el('syncDot'), t=el('syncText');
+    d.className='dot '+(ok?'on':'off');
+    t.textContent = ok ? 'База подключена · записи сохраняются' : ('Локальный режим'+(msg?' ('+msg+')':''));
+  }
+  function renderSaved(){
+    if(!saved.length){ body.innerHTML='<tr><td class="empty" colspan="10">Пока пусто — нажмите «Сохранить расчёт».</td></tr>'; return; }
+    body.innerHTML=saved.map(function(s){
+      var cond='грейс '+s.graceM+'м · '+fmt2(s.rateG)+'/'+fmt2(s.rateP)+'% · '+s.term+'м';
+      return '<tr>'
+        +'<td>'+fmt0(s.P0)+'</td>'
+        +'<td class="cond">'+cond+'</td>'
+        +'<td class="g">'+fmt(s.p1)+'</td>'
+        +'<td class="g">'+fmt(s.p2)+'</td>'
+        +'<td class="p">'+fmt(s.p3)+'</td>'
+        +'<td>'+(s.lump>0?fmt0(s.lump)+' ('+s.lumpMonth+')':'—')+'</td>'
+        +'<td>'+fmt(s.total)+'</td>'
+        +'<td>'+fmt(s.over)+'</td>'
+        +'<td class="g">'+(s.save>1?fmt(s.save):'—')+'</td>'
+        +'<td><button class="del" data-key="'+s._key+'" title="Удалить">✕</button></td>'
+        +'</tr>';
+    }).join('');
+  }
+  function buildRecord(){
+    var cfg=readCfg(); if(cfg.P0<=0||cfg.term<=0) return null;
+    var r=simulate(cfg), base=simulate(minCfg(cfg));
+    return { P0:cfg.P0, graceM:cfg.graceM, rateG:cfg.rateG, rateP:cfg.rateP, term:cfg.term,
+      p1:r.p1, p2:r.p2, p3:r.y3pay, lump:cfg.lump, lumpMonth:cfg.lumpMonth,
+      total:r.total, over:r.over, save:base.over-r.over, ts:Date.now() };
+  }
+  function saveRecord(){
+    var rec=buildRecord(); if(!rec) return; haptic();
+    if(USING_FB && recordsRef){ recordsRef.push(rec).catch(function(e){ setStatus(false,e.code||e.message); }); }
+    else { rec._key='local_'+Date.now()+Math.random().toString(36).slice(2,6); saved.unshift(rec); renderSaved(); }
+  }
+  function delRecord(key){
+    if(USING_FB && recordsRef && key.indexOf('local_')!==0){ recordsRef.child(key).remove(); }
+    else { saved=saved.filter(function(s){return s._key!==key;}); renderSaved(); }
+  }
+  function clearAll(){
+    if(tg && tg.showConfirm){ tg.showConfirm('Удалить все сохранённые расчёты?',function(ok){ if(ok) doClear(); }); }
+    else if(confirm('Удалить все сохранённые расчёты?')) doClear();
+  }
+  function doClear(){ if(USING_FB && recordsRef){ recordsRef.remove(); } else { saved=[]; renderSaved(); } }
+
+  el('saveBtn').addEventListener('click',saveRecord);
+  el('clearBtn').addEventListener('click',clearAll);
+  body.addEventListener('click',function(e){ var b=e.target.closest('.del'); if(b) delRecord(b.getAttribute('data-key')); });
+
+  function initStore(){
+    try{
+      if(typeof firebase==='undefined' || !firebase.database) throw new Error('SDK');
+      firebase.initializeApp(FIREBASE_CONFIG);
+      recordsRef=firebase.database().ref('credit_grace/'+uid+'/records');
+      recordsRef.on('value', function(snap){
+        var v=snap.val()||{};
+        saved=Object.keys(v).map(function(k){ var o=v[k]||{}; o._key=k; return o; }).sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+        renderSaved();
+      }, function(err){ USING_FB=false; setStatus(false,err.code||'нет доступа'); renderSaved(); });
+      USING_FB=true; setStatus(true);
+    }catch(e){ USING_FB=false; setStatus(false,'офлайн'); renderSaved(); }
   }
 
-  const ov = openSheet(`
-    <h2>Поделиться</h2>
-    <p class="hint">Отправьте копию сообщением или сделайте список общим.</p>
-    <button class="btn wide sec" id="as-msg">✉️ Отправить сообщением (копия)</button>
-    <div style="height:14px"></div>
-    ${liveBlock}`);
-
-  ov.querySelector("#as-msg").onclick = () => { closeSheet(); shareAsMessage(l); };
-  const goLive = ov.querySelector("#go-live"); if (goLive) goLive.onclick = async () => { closeSheet(); await makeShared(l); openShareSheet(active()); };
-  const cpLink = ov.querySelector("#cp-link"); if (cpLink) cpLink.onclick = () => { copy(BOT_APP_LINK + "?startapp=j_" + l.shareId); toast("Ссылка скопирована"); };
-  const cpCode = ov.querySelector("#cp-code"); if (cpCode) cpCode.onclick = () => { copy(l.shareId); toast("Код скопирован"); };
-}
-
-function openJoinSheet() {
-  if (!SHARING_ENABLED) {
-    openSheet(`<h2>Общие списки</h2><p class="hint">Чтобы присоединяться к чужим спискам, включите Firebase (см. README, «Живой шаринг»). Без него доступна отправка списка сообщением.</p><button class="btn wide sec" onclick="closeSheet()">Понятно</button>`);
-    return;
-  }
-  const ov = openSheet(`
-    <h2>Присоединиться</h2>
-    <p class="hint">Вставьте код общего списка, который вам прислали.</p>
-    <input class="field" id="jc" placeholder="Код списка" autocapitalize="off" autocorrect="off" />
-    <button class="btn wide" id="jc-ok">Открыть список</button>`);
-  ov.querySelector("#jc-ok").onclick = () => {
-    const code = ov.querySelector("#jc").value.trim(); closeSheet();
-    if (code) joinShared(code);
-  };
-  setTimeout(() => ov.querySelector("#jc").focus(), 100);
-}
-
-/* ============================================================================
-   FIREBASE (живой шаринг) — загружается только если задан конфиг
-   ============================================================================ */
-const SHARING_ENABLED = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.databaseURL);
-let fbDb = null, fbReady = null;
-const subs = {}; // shareId -> true
-
-function loadScript(src) {
-  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
-}
-async function initFirebase() {
-  if (!SHARING_ENABLED) throw new Error("sharing disabled");
-  if (fbReady) return fbReady;
-  fbReady = (async () => {
-    await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
-    await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js");
-    window.firebase.initializeApp(FIREBASE_CONFIG);
-    fbDb = window.firebase.database();
-  })();
-  return fbReady;
-}
-async function fbSet(path, val) { if (!SHARING_ENABLED) return; await initFirebase(); return fbDb.ref(path).set(val); }
-async function fbDel(path) { if (!SHARING_ENABLED) return; await initFirebase(); return fbDb.ref(path).remove(); }
-function fbOff(shareId) { if (fbDb) fbDb.ref("shared/" + shareId).off(); delete subs[shareId]; }
-
-async function makeShared(l) {
-  try {
-    await initFirebase();
-    const shareId = l.shareId || genId();
-    const items = {}; l.items.forEach((i) => items[i.id] = i);
-    await fbDb.ref("shared/" + shareId).set({ title: l.title, emoji: l.emoji || "", color: l.color, type: l.type, owner: USER_ID, items, updatedAt: Date.now() });
-    l.shared = true; l.shareId = shareId; l.role = "owner";
-    await Store.saveOne(l);
-    subscribe(shareId);
-    toast("Список стал общим");
-  } catch (e) { toast("Не удалось включить общий доступ"); }
-}
-
-async function joinShared(shareId) {
-  try {
-    await initFirebase();
-    const snap = await fbDb.ref("shared/" + shareId).get();
-    if (!snap.exists()) { toast("Список не найден — проверьте код"); return; }
-    let l = state.lists.find((x) => x.shareId === shareId);
-    if (!l) {
-      l = { id: genId(), shareId, shared: true, role: "member", items: [], title: "Общий список", color: COLORS[5], emoji: "🔗", type: "todo", createdAt: Date.now(), updatedAt: Date.now() };
-      state.lists.push(l);
-    }
-    subscribe(shareId);
-    openList(l.id);
-    haptic("success");
-  } catch (e) { toast("Не удалось открыть список"); }
-}
-
-function subscribe(shareId) {
-  if (subs[shareId]) return;
-  subs[shareId] = true;
-  fbDb.ref("shared/" + shareId).on("value", async (snap) => {
-    const v = snap.val();
-    let l = state.lists.find((x) => x.shareId === shareId);
-    if (!v) { // список удалён владельцем
-      if (l && l.role === "member") { toast("Общий список был удалён владельцем"); }
-      return;
-    }
-    if (!l) return;
-    l.title = v.title || l.title; l.emoji = v.emoji || l.emoji; l.color = v.color || l.color; l.type = v.type || l.type;
-    const itemsObj = v.items || {};
-    l.items = Object.keys(itemsObj).map((k) => itemsObj[k]).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    l.updatedAt = v.updatedAt || Date.now();
-    await Store.saveOne(l);
-    if (!document.getElementById("overlay")) render();
-  });
-}
-
-/* ============================================================================
-   Утилиты
-   ============================================================================ */
-function copy(text) {
-  try { navigator.clipboard.writeText(text); }
-  catch (e) { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
-}
-let toastTimer;
-function toast(msg) {
-  let t = document.getElementById("toast");
-  if (!t) { t = document.createElement("div"); t.id = "toast";
-    t.style.cssText = "position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;z-index:100;max-width:90%;text-align:center;transition:opacity .2s";
-    document.body.appendChild(t); }
-  t.textContent = msg; t.style.opacity = "1";
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.opacity = "0", 2200);
-}
-window.closeSheet = closeSheet; // для inline onclick в join-подсказке
-
-/* ============================================================================
-   Старт
-   ============================================================================ */
-(async function boot() {
-  state.lists = await Store.load();
-
-  // Подписка на уже сохранённые общие списки
-  if (SHARING_ENABLED) {
-    for (const l of state.lists) { if (l.shared && l.shareId) { try { await initFirebase(); subscribe(l.shareId); } catch (e) {} } }
+  /* ---------- Telegram MainButton как основная кнопка сохранения ---------- */
+  if(tg && tg.MainButton){
+    try{
+      el('saveBtn').style.display='none';
+      tg.MainButton.setText('＋ Сохранить расчёт');
+      tg.MainButton.show();
+      tg.MainButton.onClick(saveRecord);
+    }catch(e){ el('saveBtn').style.display=''; }
   }
 
-  // Присоединение по ссылке: ?startapp=j_XXX (Telegram) или ?join=XXX (браузер)
-  const startParam = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || "";
-  const urlJoin = new URLSearchParams(location.search).get("join");
-  let joinId = null;
-  if (startParam.indexOf("j_") === 0) joinId = startParam.slice(2);
-  else if (urlJoin) joinId = urlJoin;
-
-  render();
-  if (joinId && SHARING_ENABLED) joinShared(joinId);
-  else if (joinId && !SHARING_ENABLED) toast("Открыт список по ссылке, но живой шаринг не настроен");
+  initStore();
+  update();
 })();
 </script>
 </body>
