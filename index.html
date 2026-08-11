@@ -203,17 +203,25 @@ function haptic(kind) {
 const CS = tg && tg.CloudStorage && tg.CloudStorage.setItem ? tg.CloudStorage : null;
 const LS_KEY = "spiski.v1";
 
+// CloudStorage Telegram: ключи только [A-Za-z0-9_-], значение <= 4096 символов на ключ.
+// Поэтому: имена ключей без ":", а список режем на части (chunks) при сохранении.
+const CS_CHUNK = 3000; // запас относительно лимита 4096
 const Store = CS ? {
   csGet: (k) => new Promise((r) => CS.getItem(k, (e, v) => r(e ? null : v))),
   csSet: (k, v) => new Promise((r) => CS.setItem(k, v, (e, ok) => r(!e && ok))),
   csDel: (k) => new Promise((r) => CS.removeItem(k, () => r())),
+  metaKey: (id) => "l_" + id,          // хранит число частей
+  chunkKey: (id, i) => "l_" + id + "_" + i,
   async load() {
     const raw = await this.csGet("idx");
     const ids = raw ? JSON.parse(raw) : [];
     const out = [];
     for (const id of ids) {
-      const s = await this.csGet("l:" + id);
-      if (s) { try { out.push(JSON.parse(s)); } catch (e) {} }
+      const n = parseInt((await this.csGet(this.metaKey(id))) || "0", 10);
+      if (!n) continue;
+      let enc = "";
+      for (let i = 0; i < n; i++) enc += (await this.csGet(this.chunkKey(id, i))) || "";
+      try { out.push(JSON.parse(decodeURIComponent(enc))); } catch (e) {}
     }
     return out;
   },
@@ -221,15 +229,25 @@ const Store = CS ? {
     const raw = await this.csGet("idx");
     let ids = raw ? JSON.parse(raw) : [];
     if (!ids.includes(list.id)) { ids.push(list.id); await this.csSet("idx", JSON.stringify(ids)); }
-    const ok = await this.csSet("l:" + list.id, JSON.stringify(list));
-    if (!ok) toast("Список слишком большой для облака Telegram");
+    // encodeURIComponent -> строка становится ASCII, режется по символам безопасно
+    const enc = encodeURIComponent(JSON.stringify(list));
+    const n = Math.max(1, Math.ceil(enc.length / CS_CHUNK));
+    const oldN = parseInt((await this.csGet(this.metaKey(list.id))) || "0", 10);
+    for (let i = 0; i < n; i++) {
+      const ok = await this.csSet(this.chunkKey(list.id, i), enc.slice(i * CS_CHUNK, (i + 1) * CS_CHUNK));
+      if (!ok) { toast("Не удалось сохранить в облако Telegram"); return; }
+    }
+    await this.csSet(this.metaKey(list.id), String(n));
+    for (let i = n; i < oldN; i++) await this.csDel(this.chunkKey(list.id, i)); // убрать лишние части
   },
   async removeOne(id) {
     const raw = await this.csGet("idx");
     let ids = raw ? JSON.parse(raw) : [];
     ids = ids.filter((x) => x !== id);
     await this.csSet("idx", JSON.stringify(ids));
-    await this.csDel("l:" + id);
+    const n = parseInt((await this.csGet(this.metaKey(id))) || "0", 10);
+    for (let i = 0; i < n; i++) await this.csDel(this.chunkKey(id, i));
+    await this.csDel(this.metaKey(id));
   },
 } : {
   read() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch (e) { return []; } },
