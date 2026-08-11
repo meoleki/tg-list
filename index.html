@@ -135,7 +135,8 @@
     <div class="scroll">
       <table>
         <thead><tr>
-          <th>Сумма</th><th>Условия</th><th>1 год</th><th>2 год</th><th class="post">3+ год</th>
+          <th>Сумма</th><th>Грейс</th><th>Ставки&nbsp;%</th><th>Срок</th>
+          <th>1 год</th><th>2 год</th><th class="post">3+ год</th>
           <th>Взнос (мес.)</th><th>Всего</th><th>Переплата</th><th>Экономия</th><th></th>
         </tr></thead>
         <tbody id="saveBody"></tbody>
@@ -265,35 +266,52 @@
     d.className='dot '+(ok?'on':'off');
     t.textContent = ok ? 'База подключена · записи сохраняются' : ('Локальный режим'+(msg?' ('+msg+')':''));
   }
+  function round2(x){ return Math.round((+x||0)*100)/100; }
+  // Пакуем ТОЛЬКО входные параметры. Короткие ключи; поля с «мин»/нулём опускаем.
+  // s=сумма g=грейс(мес) a=ставка грейс b=ставка после n=срок
+  // x/y/z=фикс. платёж 1/2/3-го года (нет ключа = «мин»)  L=взнос m=месяц взноса
+  // Производные (платежи, всего, переплата, экономия) и время НЕ храним:
+  // порядок берём из chronologically-sortable push-ключа.
+  function pack(){
+    var cfg=readCfg(); if(cfg.P0<=0||cfg.term<=0) return null;
+    var o={ s:round2(cfg.P0), g:cfg.graceM, a:cfg.rateG, b:cfg.rateP, n:cfg.term };
+    if(mode.p1!=='min') o.x=round2(num('p1'));
+    if(mode.p2!=='min') o.y=round2(num('p2'));
+    if(mode.p3!=='min') o.z=round2(num('p3'));
+    if(cfg.lump>0){ o.L=round2(cfg.lump); o.m=cfg.lumpMonth; }
+    return o;
+  }
+  function unpack(o){
+    o=o||{};
+    return { P0:+o.s||0, graceM:+o.g||0, rateG:+o.a||0, rateP:+o.b||0, term:+o.n||0,
+      p1:(o.x!=null)?+o.x:'min', p2:(o.y!=null)?+o.y:'min', p3:(o.z!=null)?+o.z:'min',
+      lump:+o.L||0, lumpMonth:+o.m||0 };
+  }
   function renderSaved(){
-    if(!saved.length){ body.innerHTML='<tr><td class="empty" colspan="10">Пока пусто — нажмите «Сохранить расчёт».</td></tr>'; return; }
-    body.innerHTML=saved.map(function(s){
-      var cond='грейс '+s.graceM+'м · '+fmt2(s.rateG)+'/'+fmt2(s.rateP)+'% · '+s.term+'м';
+    if(!saved.length){ body.innerHTML='<tr><td class="empty" colspan="12">Пока пусто — нажмите «Сохранить расчёт».</td></tr>'; return; }
+    body.innerHTML=saved.map(function(item){
+      var cfg=unpack(item.o);
+      var r=simulate(cfg), base=simulate(minCfg(cfg)), save=base.over-r.over;
       return '<tr>'
-        +'<td>'+fmt0(s.P0)+'</td>'
-        +'<td class="cond">'+cond+'</td>'
-        +'<td class="g">'+fmt(s.p1)+'</td>'
-        +'<td class="g">'+fmt(s.p2)+'</td>'
-        +'<td class="p">'+fmt(s.p3)+'</td>'
-        +'<td>'+(s.lump>0?fmt0(s.lump)+' ('+s.lumpMonth+')':'—')+'</td>'
-        +'<td>'+fmt(s.total)+'</td>'
-        +'<td>'+fmt(s.over)+'</td>'
-        +'<td class="g">'+(s.save>1?fmt(s.save):'—')+'</td>'
-        +'<td><button class="del" data-key="'+s._key+'" title="Удалить">✕</button></td>'
+        +'<td>'+fmt0(cfg.P0)+'</td>'
+        +'<td class="g">'+cfg.graceM+' мес.</td>'
+        +'<td class="cond">'+fmt2(cfg.rateG)+' / '+fmt2(cfg.rateP)+' %</td>'
+        +'<td>'+cfg.term+' мес.</td>'
+        +'<td class="g">'+fmt(r.p1)+'</td>'
+        +'<td class="g">'+fmt(r.p2)+'</td>'
+        +'<td class="p">'+fmt(r.y3pay)+'</td>'
+        +'<td>'+(cfg.lump>0?fmt0(cfg.lump)+' ('+cfg.lumpMonth+')':'—')+'</td>'
+        +'<td>'+fmt(r.total)+'</td>'
+        +'<td>'+fmt(r.over)+'</td>'
+        +'<td class="g">'+(save>1?fmt(save):'—')+'</td>'
+        +'<td><button class="del" data-key="'+item._key+'" title="Удалить">✕</button></td>'
         +'</tr>';
     }).join('');
   }
-  function buildRecord(){
-    var cfg=readCfg(); if(cfg.P0<=0||cfg.term<=0) return null;
-    var r=simulate(cfg), base=simulate(minCfg(cfg));
-    return { P0:cfg.P0, graceM:cfg.graceM, rateG:cfg.rateG, rateP:cfg.rateP, term:cfg.term,
-      p1:r.p1, p2:r.p2, p3:r.y3pay, lump:cfg.lump, lumpMonth:cfg.lumpMonth,
-      total:r.total, over:r.over, save:base.over-r.over, ts:Date.now() };
-  }
   function saveRecord(){
-    var rec=buildRecord(); if(!rec) return; haptic();
-    if(USING_FB && recordsRef){ recordsRef.push(rec).catch(function(e){ setStatus(false,e.code||e.message); }); }
-    else { rec._key='local_'+Date.now()+Math.random().toString(36).slice(2,6); saved.unshift(rec); renderSaved(); }
+    var o=pack(); if(!o) return; haptic();
+    if(USING_FB && recordsRef){ recordsRef.push(o).catch(function(e){ setStatus(false,e.code||e.message); }); }
+    else { saved.unshift({_key:'local_'+Date.now()+Math.random().toString(36).slice(2,6), o:o}); renderSaved(); }
   }
   function delRecord(key){
     if(USING_FB && recordsRef && key.indexOf('local_')!==0){ recordsRef.child(key).remove(); }
@@ -316,7 +334,8 @@
       recordsRef=firebase.database().ref('credit_grace/'+uid+'/records');
       recordsRef.on('value', function(snap){
         var v=snap.val()||{};
-        saved=Object.keys(v).map(function(k){ var o=v[k]||{}; o._key=k; return o; }).sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+        // push-ключи сортируются хронологически; reverse -> новые сверху
+        saved=Object.keys(v).sort().reverse().map(function(k){ return {_key:k, o:v[k]||{}}; });
         renderSaved();
       }, function(err){ USING_FB=false; setStatus(false,err.code||'нет доступа'); renderSaved(); });
       USING_FB=true; setStatus(true);
